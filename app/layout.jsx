@@ -6,7 +6,7 @@ import { Suspense } from "react"
 import "./globals.css"
 
 export const metadata = {
-  title: "Infera - Captura decisiones técnicas",
+  title: "Infera",
   description: 'Captura el "por qué" técnico desde Slack/GitHub y publica resúmenes en Notion',
   generator: "v0.app",
 }

@@ -1,60 +1,61 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAppState } from "@/context/AppStateContext"
 import { Github, Slack, FileText, Save, ExternalLink, CheckCircle, XCircle } from "lucide-react"
 import toast from "react-hot-toast"
 import styles from "./integrations.module.css"
+import { useSession } from "next-auth/react"
+import { getAuthenticatedUser, updateAuthCredentials } from "@lib/backend-helper"
 
 export default function IntegrationsPage() {
   const { state, dispatch } = useAppState()
 
+  const { data: session } = useSession()
+
+  const [user, setUser] = useState(null)
+
+  const fetchUser = async () => {
+    const user = await getAuthenticatedUser({token: session.access_token})
+    setUser(user.data)
+  }
+  useEffect(() => {
+    if (session) {
+      fetchUser()
+    }
+  }, [session])
+
   // Estado local para los tokens
-  const [githubToken, setGithubToken] = useState(state.integraciones.github.token || "")
-  const [notionToken, setNotionToken] = useState(state.integraciones.notion.token || "")
+  const [githubToken, setGithubToken] = useState(user?.github_token || "")
+  const [notionToken, setNotionToken] = useState(user?.notion_token || "")
 
   // Guardar token de GitHub
-  const guardarGitHub = () => {
+  const guardarGitHub = async () => {
     if (!githubToken.trim()) {
       toast.error("Por favor ingresa un token válido")
       return
     }
-    dispatch({
-      type: "GUARDAR_TOKEN",
-      payload: {
-        servicio: "github",
-        token: githubToken,
-      },
-    })
-    toast.success("Token de GitHub guardado correctamente")
+    const response = await updateAuthCredentials({token: session.access_token, githubToken: githubToken})
+    if (response.success) {
+      fetchUser()
+      toast.success("Token de GitHub guardado correctamente")
+    } else {
+      toast.error(response?.data?.message)
+    }
   }
 
   // Guardar token de Notion
-  const guardarNotion = () => {
+  const guardarNotion = async () => {
     if (!notionToken.trim()) {
       toast.error("Por favor ingresa un token válido")
       return
     }
-    dispatch({
-      type: "GUARDAR_TOKEN",
-      payload: {
-        servicio: "notion",
-        token: notionToken,
-      },
-    })
-    toast.success("Token de Notion guardado correctamente")
-  }
-
-  // Conectar Slack (simulado con link)
-  const conectarSlack = () => {
-    // En producción, esto redigiría a OAuth de Slack
-    dispatch({
-      type: "GUARDAR_TOKEN",
-      payload: {
-        servicio: "slack",
-        token: "mock-slack-token-" + Date.now(),
-      },
-    })
-    toast.success("Slack conectado correctamente")
+    const response = await updateAuthCredentials({token: session.access_token, notionToken: notionToken})
+    if (response.success) {
+      fetchUser()
+      toast.success("Token de Notion guardado correctamente")
+    } else {
+      toast.error(response?.data?.message)
+    }
   }
 
   return (
@@ -72,7 +73,7 @@ export default function IntegrationsPage() {
             <h2>GitHub</h2>
             <p className={styles.subtitulo}>Conecta tu cuenta de GitHub</p>
           </div>
-          {state.integraciones.github.conectado ? (
+          {user?.has_github_token ? (
             <CheckCircle size={24} className={styles.iconoConectado} />
           ) : (
             <XCircle size={24} className={styles.iconoDesconectado} />
@@ -115,7 +116,7 @@ export default function IntegrationsPage() {
             <h2>Slack</h2>
             <p className={styles.subtitulo}>Conecta tu workspace de Slack</p>
           </div>
-          {state.integraciones.slack.conectado ? (
+          {user?.has_slack_token ? (
             <CheckCircle size={24} className={styles.iconoConectado} />
           ) : (
             <XCircle size={24} className={styles.iconoDesconectado} />
@@ -126,12 +127,12 @@ export default function IntegrationsPage() {
             Conecta Infera a tu workspace de Slack para monitorear canales y capturar decisiones técnicas.
           </p>
 
-          <button className={styles.botonSlack} onClick={conectarSlack}>
+          <a className={styles.botonSlack} href={`https://slack.com/oauth/v2/authorize?client_id=9434963026338.9433497656981&scope=&user_scope=channels:history,channels:read,users.profile:read,groups:read,im:read,mpim:read&state=${session && session.id}`}>
             <Slack size={18} />
-            {state.integraciones.slack.conectado ? "Reconectar con Slack" : "Conectar con Slack"}
-          </button>
+            {user?.has_slack_token ? "Reconectar con Slack" : "Conectar con Slack"}
+          </a>
 
-          {state.integraciones.slack.conectado && (
+          {user?.has_slack_token && (
             <p className={styles.exito}>✓ Conectado al workspace: {state.integraciones.slack.workspace}</p>
           )}
         </div>
@@ -145,7 +146,7 @@ export default function IntegrationsPage() {
             <h2>Notion</h2>
             <p className={styles.subtitulo}>Conecta tu workspace de Notion</p>
           </div>
-          {state.integraciones.notion.conectado ? (
+          {user?.has_notion_token ? (
             <CheckCircle size={24} className={styles.iconoConectado} />
           ) : (
             <XCircle size={24} className={styles.iconoDesconectado} />
@@ -168,7 +169,7 @@ export default function IntegrationsPage() {
           <input
             type="password"
             className={styles.input}
-            placeholder="secret_xxxxxxxxxxxxxxxxxxxx"
+            placeholder="ntn_xxxxxxxxxxxxxxxxxxxx"
             value={notionToken}
             onChange={(e) => setNotionToken(e.target.value)}
           />

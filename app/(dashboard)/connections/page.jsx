@@ -1,59 +1,139 @@
 "use client"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useAppState } from "@/context/AppStateContext"
-import { Plus, Trash2, AlertCircle } from "lucide-react"
+import { Plus, Trash2, AlertCircle, RefreshCw } from "lucide-react"
 import toast from "react-hot-toast"
 import styles from "./connections.module.css"
+import { useSession } from "next-auth/react"
+import {
+  getAuthenticatedUser,
+  getSlackChannels,
+  getNotionDatabases,
+  getSlackAssociations,
+  createSmartSlackAssociations,
+  deleteSlackAssociation,
+} from "@lib/backend-helper"
 
 export default function ConnectionsPage() {
-  const { state, dispatch } = useAppState()
+  const { state } = useAppState()
+
+  const { data: session } = useSession()
+
+  // Estado local para datos remotos
+  const [canalesSlack, setCanalesSlack] = useState([])
+  const [basesNotion, setBasesNotion] = useState([])
+  const [asociaciones, setAsociaciones] = useState([])
 
   // Estado local para el formulario de nueva asociación
   const [canalSeleccionado, setCanalSeleccionado] = useState("")
   const [bdSeleccionada, setBdSeleccionada] = useState("")
 
-  // Verificar si las integraciones están conectadas
-  const slackConectado = state.integraciones.slack.conectado
-  const notionConectado = state.integraciones.notion.conectado
+  const [cargandoAsociaciones, setCargandoAsociaciones] = useState(false)
+  const [user, setUser] = useState(null)
 
-  // Agregar nueva asociación
-  const agregarAsociacion = () => {
+  const [slackConectado, setSlackConectado] = useState(true)
+  const [notionConectado, setNotionConectado] = useState(true)
+
+  const fetchData = async () => {
+    if (!session) return
+
+    const user = await getAuthenticatedUser({token: session.access_token})
+    setUser(user.data)
+
+    setSlackConectado(user.data.has_slack_token)
+    setNotionConectado(user.data.has_notion_token)
+
+    const [canalesResponse, basesResponse] = await Promise.all([
+      getSlackChannels({ token: session.access_token }),
+      getNotionDatabases({ token: session.access_token }),
+    ])
+
+    if (!canalesResponse.success) {
+      toast.error("No pudimos obtener los canales de Slack")
+    } else {
+      setCanalesSlack(canalesResponse.data?.channels ?? [])
+    }
+
+    if (!basesResponse.success) {
+      toast.error("No pudimos obtener las bases de Notion")
+    } else {
+      setBasesNotion(basesResponse.data?.databases ?? [])
+    }
+  }
+
+  const fetchAssociations = async () => {
+    if (!session) return
+
+    setCargandoAsociaciones(true)
+
+    const asociacionesResponse = await getSlackAssociations({ token: session.access_token })
+    console.log('asociacionesResponse', asociacionesResponse)
+
+    if (!asociacionesResponse.success) {
+      toast.error("No pudimos obtener las asociaciones")
+    } else {
+      setAsociaciones(asociacionesResponse.data ?? [])
+    }
+
+    setCargandoAsociaciones(false)
+  }
+
+  useEffect(() => {
+    if (session) {
+      fetchData()
+      fetchAssociations()
+    }
+  }, [session])
+
+  const agregarAsociacion = async () => {
+    if (!session) {
+      toast.error("Sesión no encontrada")
+      return
+    }
+
     if (!canalSeleccionado || !bdSeleccionada) {
       toast.error("Selecciona un canal y una base de datos")
       return
     }
 
-    // Verificar si el canal ya tiene una asociación
-    const canalYaAsociado = state.asociaciones.some((a) => a.canal === canalSeleccionado)
-    if (canalYaAsociado) {
-      toast.error("Este canal ya tiene una base de datos asociada")
+    const response = await createSmartSlackAssociations({
+      token: session.access_token,
+      notionDatabaseIdExternal: bdSeleccionada,
+      slackChannelIdsExternal: [canalSeleccionado],
+    })
+
+    if (!response.success) {
+      toast.error(response.error?.message ?? "No pudimos crear la asociación")
       return
     }
-
-    dispatch({
-      type: "AGREGAR_ASOCIACION",
-      payload: {
-        canal: canalSeleccionado,
-        baseDatos: bdSeleccionada,
-      },
-    })
 
     toast.success("Asociación creada correctamente")
     setCanalSeleccionado("")
     setBdSeleccionada("")
+    fetchAssociations()
   }
 
-  // Eliminar asociación
-  const eliminarAsociacion = (id) => {
-    dispatch({
-      type: "ELIMINAR_ASOCIACION",
-      payload: id,
+  const eliminarAsociacion = async (asociacion) => {
+    if (!session) {
+      toast.error("Sesión no encontrada")
+      return
+    }
+
+    const response = await deleteSlackAssociation({
+      token: session.access_token,
+      associationId: asociacion.id,
     })
-    toast.success("Asociación eliminada")
+
+    if (!response.success) {
+      toast.error(response.error?.message ?? "No pudimos eliminar la asociación")
+      return
+    }
+
+    toast.success("Asociación eliminada correctamente")
+    fetchAssociations()
   }
 
-  // Si no están conectadas las integraciones, mostrar mensaje
-  if (slackConectado || notionConectado) {
+  if (!slackConectado || !notionConectado) {
     return (
       <div className={styles.container}>
         <div className={styles.header}>
@@ -97,14 +177,11 @@ export default function ConnectionsPage() {
               onChange={(e) => setCanalSeleccionado(e.target.value)}
             >
               <option value="">Selecciona un canal</option>
-              {state.integraciones.slack.canalesDisponibles.map((canal) => {
-                const yaAsociado = state.asociaciones.some((a) => a.canal === canal)
-                return (
-                  <option key={canal} value={canal} disabled={yaAsociado}>
-                    {canal} {yaAsociado ? "(ya asociado)" : ""}
-                  </option>
-                )
-              })}
+              {canalesSlack.map((canal,index) => (
+                <option key={index} value={canal.slack_channel_id}>
+                  {canal.channel_name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -116,9 +193,9 @@ export default function ConnectionsPage() {
               onChange={(e) => setBdSeleccionada(e.target.value)}
             >
               <option value="">Selecciona una base de datos</option>
-              {state.integraciones.notion.basesDisponibles.map((bd) => (
-                <option key={bd} value={bd}>
-                  {bd}
+              {basesNotion.map((db,index) => (
+                <option key={index} value={db.notion_database_id}>
+                  {db.database_name}
                 </option>
               ))}
             </select>
@@ -137,20 +214,28 @@ export default function ConnectionsPage() {
 
       {/* Lista de asociaciones existentes */}
       <div className={styles.tarjeta}>
-        <h2 className={styles.subtitulo}>Asociaciones activas ({state.asociaciones.length})</h2>
+        <div className={styles.listaHeader}>
+          <h2 className={styles.subtitulo}>Asociaciones activas ({asociaciones?.count})</h2>
+          <button className={styles.botonPrimario} onClick={fetchAssociations} disabled={cargandoAsociaciones}>
+            <RefreshCw size={16} className={cargandoAsociaciones ? styles.spin : ""} />
+            Actualizar
+          </button>
+        </div>
 
-        {state.asociaciones.length === 0 ? (
+        {cargandoAsociaciones && asociaciones && Array.isArray(asociaciones?.associations) ? (
+          <p className={styles.vacio}>Cargando asociaciones...</p>
+        ) : asociaciones?.count === 0 ? (
           <p className={styles.vacio}>No hay asociaciones creadas todavía</p>
         ) : (
           <div className={styles.lista}>
-            {state.asociaciones.map((asociacion) => (
-              <div key={asociacion.id} className={styles.item}>
+            {asociaciones && Array.isArray(asociaciones?.associations) && asociaciones?.associations.map((asociacion, index) => (
+              <div key={index} className={styles.item}>
                 <div className={styles.itemInfo}>
-                  <div className={styles.itemCanal}>{asociacion.canal}</div>
+                  <div className={styles.itemCanal}>{asociacion.slack_channel?.channel_name ?? asociacion.slack_channel_id}</div>
                   <div className={styles.itemFlecha}>→</div>
-                  <div className={styles.itemBd}>{asociacion.baseDatos}</div>
+                  <div className={styles.itemBd}>{asociacion.notion_database?.database_name ?? asociacion.notion_database_id}</div>
                 </div>
-                <button className={styles.botonEliminar} onClick={() => eliminarAsociacion(asociacion.id)}>
+                <button className={styles.botonEliminar} onClick={() => eliminarAsociacion(asociacion)}>
                   <Trash2 size={16} />
                 </button>
               </div>

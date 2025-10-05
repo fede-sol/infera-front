@@ -18,7 +18,7 @@ export default function PaginaIngresar() {
     setCargando(true)
 
     try {
-      const resultado = await signIn("credentials", {
+      const resultado = await signIn("login", {
         email,
         password,
         redirect: false,

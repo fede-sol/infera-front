@@ -105,6 +105,30 @@
   color: #9ca3af;
 }
 
+.botonPrimario {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.botonPrimario:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.botonPrimario:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 /* Botón para agregar asociación */
 .botonAgregar {
   background: var(--accent-color);
@@ -137,7 +161,12 @@
   flex-direction: column;
   gap: 0.75rem;
 }
-
+.listaHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
 .item {
   display: flex;
   align-items: center;
