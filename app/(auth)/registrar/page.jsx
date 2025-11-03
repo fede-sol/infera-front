@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import toast from "react-hot-toast"
 import { Mail, Lock, User, UserPlus } from "lucide-react"
+import { signIn } from "next-auth/react"
 import styles from "./registrar.module.css"
 
 export default function PaginaRegistrar() {
@@ -30,12 +31,23 @@ export default function PaginaRegistrar() {
     setCargando(true)
 
     try {
-      // En modo demo, simplemente redirigimos al login
-      toast.success("Cuenta creada. Usa las credenciales demo para ingresar.")
-      setTimeout(() => {
-        router.push("/ingresar")
-      }, 1500)
+      const response = await signIn("register", {
+        email,
+        password,
+        full_name: nombre,
+        username: nombre,
+        redirect: false,
+      })
+
+      if (response?.error) {
+        toast.error(response.error)
+        return
+      }
+
+      toast.success("Cuenta creada correctamente")
+      router.push("/")
     } catch (error) {
+      console.error("Error al registrar usuario", error)
       toast.error("Error al crear la cuenta")
     } finally {
       setCargando(false)
@@ -132,9 +144,6 @@ export default function PaginaRegistrar() {
               Ingresa aquí
             </Link>
           </p>
-          <div className={styles.demo}>
-            <p className={styles.textoDemo}>Modo demo: Usa demo@infera.dev / demo123</p>
-          </div>
         </div>
       </div>
     </div>

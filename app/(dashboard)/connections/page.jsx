@@ -231,9 +231,9 @@ export default function ConnectionsPage() {
             {asociaciones && Array.isArray(asociaciones?.associations) && asociaciones?.associations.map((asociacion, index) => (
               <div key={index} className={styles.item}>
                 <div className={styles.itemInfo}>
-                  <div className={styles.itemCanal}>{asociacion.slack_channel?.channel_name ?? asociacion.slack_channel_id}</div>
+                  <div className={styles.itemCanal}>{asociacion.source_resource?.name ?? asociacion.external_id}</div>
                   <div className={styles.itemFlecha}>→</div>
-                  <div className={styles.itemBd}>{asociacion.notion_database?.database_name ?? asociacion.notion_database_id}</div>
+                  <div className={styles.itemBd}>{asociacion.target_resource?.name ?? asociacion.external_id}</div>
                 </div>
                 <button className={styles.botonEliminar} onClick={() => eliminarAsociacion(asociacion)}>
                   <Trash2 size={16} />

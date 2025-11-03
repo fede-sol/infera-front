@@ -93,9 +93,6 @@ export default function PaginaIngresar() {
               Regístrate aquí
             </Link>
           </p>
-          <div className={styles.demo}>
-            <p className={styles.textoDemo}>Demo: demo@infera.dev / demo123</p>
-          </div>
         </div>
       </div>
     </div>

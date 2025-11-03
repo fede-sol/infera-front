@@ -64,12 +64,42 @@
 .footer {
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .user {
   font-size: 0.875rem;
   color: var(--text-secondary);
   margin: 0;
+  flex: 1;
+  word-break: break-word;
+}
+
+.signOutButton {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+  justify-content: center;
+}
+
+.signOutButton:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.signOutButton span {
+  line-height: 1;
 }
 
 @media (max-width: 768px) {
@@ -80,11 +110,17 @@
   .logo h1,
   .badge,
   .navItem span,
-  .user {
+  .user,
+  .signOutButton span {
     display: none;
   }
 
   .navItem {
+    justify-content: center;
+  }
+
+  .signOutButton {
+    padding: 0.4rem;
     justify-content: center;
   }
 }
